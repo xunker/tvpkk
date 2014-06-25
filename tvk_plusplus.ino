@@ -11,9 +11,9 @@ static uint8_t enc_prev_pos    = 0;
 static uint8_t enc_flags       = 0;
 static uint8_t sw_was_pressed  = 0;
 
-#define MMKEY   0x00
-#define KEYCODE 0x01
-#define SCROLL  0x02 // mouse scoll wheel
+#define MMKEY      0x00
+#define KEYCODE    0x01
+#define MOUSEWHEEL 0x02 // mouse scoll wheel
 
 // indexes for control_sets array;
 #define ROTATE_LEFT  1
@@ -25,15 +25,31 @@ struct control_event{
   uint8_t event_code;
 };
 
-struct control_event current_set[3];
+struct control_set{
+  struct control_event rotate_right;
+  struct control_event rotate_left;
+  struct control_event button_press;
+};
+
+struct control_set current_set;
 uint8_t current_set_index = 0;
 
-struct control_event control_sets[] = { 
-  { SCROLL, +5 },                     { SCROLL, -5 },                   { KEYCODE, KEYCODE_HOME },
-  { MMKEY, MMKEY_VOL_UP } ,           { MMKEY, MMKEY_VOL_DOWN },        { MMKEY, MMKEY_MUTE },
-  { MMKEY, MMKEY_SCAN_NEXT_TRACK } ,  { MMKEY, MMKEY_SCAN_PREV_TRACK }, { MMKEY, MMKEY_PLAYPAUSE },
-  { KEYCODE, KEYCODE_PAGE_DOWN },     { KEYCODE, KEYCODE_PAGE_UP },     { KEYCODE, KEYCODE_HOME },
-  { KEYCODE, KEYCODE_ARROW_DOWN },    { KEYCODE, KEYCODE_ARROW_UP },    { KEYCODE, KEYCODE_HOME }
+struct control_set control_sets[] = { 
+  {
+    { MOUSEWHEEL, +5 }, { MOUSEWHEEL, -5 }, { KEYCODE, KEYCODE_HOME }
+  },
+  {
+    { MMKEY, MMKEY_VOL_UP }, { MMKEY, MMKEY_VOL_DOWN }, { MMKEY, MMKEY_MUTE }
+  },
+  {
+    { MMKEY, MMKEY_SCAN_NEXT_TRACK }, { MMKEY, MMKEY_SCAN_PREV_TRACK }, { MMKEY, MMKEY_PLAYPAUSE }
+  },
+  {
+    { KEYCODE, KEYCODE_PAGE_DOWN }, { KEYCODE, KEYCODE_PAGE_UP }, { KEYCODE, KEYCODE_HOME }
+  },
+  {
+    { KEYCODE, KEYCODE_ARROW_DOWN }, { KEYCODE, KEYCODE_ARROW_UP }, { KEYCODE, KEYCODE_HOME }
+  }
 };
 
 void setup()
@@ -66,9 +82,7 @@ void setup()
 }
 
 void change_command_set(uint8_t set_index) {
-  for(uint8_t j=0;j<3;j++) {
-    current_set[j] = control_sets[((set_index*3)+j)];
-  }
+  current_set = control_sets[set_index];
 }
 
 uint8_t next_set_index(uint8_t set_index, uint8_t maximum) {
@@ -77,14 +91,14 @@ uint8_t next_set_index(uint8_t set_index, uint8_t maximum) {
   return set_index;
 }
 
-void send_key(uint8_t action) {
-  if (current_set[action].event_type == KEYCODE) {
-    TrinketHidCombo.pressKey(0,current_set[action].event_code);
+void send_key(struct control_event action) {
+  if (action.event_type == KEYCODE) {
+    TrinketHidCombo.pressKey(0,action.event_code);
     TrinketHidCombo.pressKey(0, 0);
-  } else if (current_set[action].event_type == MMKEY) { 
-    TrinketHidCombo.pressMultimediaKey(current_set[action].event_code);
-  } else if (current_set[action].event_type == SCROLL) {
-    TrinketHidCombo.mouseMove(0, 0, current_set[action].event_code, 0);
+  } else if (action.event_type == MMKEY) { 
+    TrinketHidCombo.pressMultimediaKey(action.event_code);
+  } else if (action.event_type == MOUSEWHEEL) {
+    TrinketHidCombo.mouseMove(0, 0, action.event_code, 0);
   }
 }
 
@@ -156,10 +170,10 @@ void loop()
   enc_prev_pos = enc_cur_pos;
 
   if (enc_action > 0) {
-      send_key(ROTATE_RIGHT);
+      send_key(current_set.rotate_right);
   }
   else if (enc_action < 0) {
-      send_key(ROTATE_LEFT);
+      send_key(current_set.rotate_left);
   }
 
   // remember that the switch is active-high
@@ -171,7 +185,7 @@ void loop()
 // eventually I want to have a long-press change the command set and leave the button press function as before.
 current_set_index = next_set_index(current_set_index, (sizeof(control_sets) / 6));
 change_command_set(current_set_index);
-     // send_key(BUTTON_PRESS);
+     // send_key(current_set.button_press);
 
       delay(5); // debounce delay
     }
