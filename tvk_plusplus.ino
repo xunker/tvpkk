@@ -7,22 +7,17 @@
 #define TRINKET_PINx       PINB
 #define PIN_ENCODER_SWITCH 1
 
-static uint8_t enc_prev_pos    = 0;
-static uint8_t enc_flags       = 0;
-static uint8_t sw_was_pressed  = 0;
+static uint8_t enc_prev_pos = 0;
+static uint8_t enc_flags    = 0;
 
 static unsigned long sw_press_began = 0;
-const unsigned long sw_short_press_threshold = 100; // millis
-const unsigned long sw_long_press_threshold = 1000; // millis
+
+const unsigned long sw_short_press_threshold = 50;   // millis
+const unsigned long sw_long_press_threshold  = 1000; // millis
 
 #define MMKEY      0x00
 #define KEYCODE    0x01
 #define MOUSEWHEEL 0x02 // mouse scoll wheel
-
-// indexes for control_sets array;
-#define ROTATE_LEFT  1
-#define ROTATE_RIGHT 0
-#define BUTTON_PRESS 2  
 
 struct control_event{
   uint8_t event_type;
@@ -56,10 +51,7 @@ struct control_set control_sets[] = {
   }
 };
 
-void setup()
-{
-  delay(1000); // brick protection
-  
+void setup() {
   change_command_set(current_set_index); // Set initial command set
   
   // set pins as input with internal pull-up resistors enabled
@@ -106,8 +98,7 @@ void send_key(struct control_event action) {
   }
 }
 
-void loop()
-{
+void loop() {
   int8_t enc_action = 0; // 1 or -1 if moved, sign is direction
 
   // note: for better performance, the code will now use
@@ -123,31 +114,24 @@ void loop()
   }
 
   // if any rotation at all
-  if (enc_cur_pos != enc_prev_pos)
-  {
-    if (enc_prev_pos == 0x00)
-    {
+  if (enc_cur_pos != enc_prev_pos) {
+    if (enc_prev_pos == 0x00) {
       // this is the first edge
       if (enc_cur_pos == 0x01) {
         enc_flags |= (1 << 0);
-      }
-      else if (enc_cur_pos == 0x02) {
+      } else if (enc_cur_pos == 0x02) {
         enc_flags |= (1 << 1);
       }
     }
 
-    if (enc_cur_pos == 0x03)
-    {
+    if (enc_cur_pos == 0x03) {
       // this is when the encoder is in the middle of a "step"
       enc_flags |= (1 << 4);
-    }
-    else if (enc_cur_pos == 0x00)
-    {
+    } else if (enc_cur_pos == 0x00) {
       // this is the final edge
       if (enc_prev_pos == 0x02) {
         enc_flags |= (1 << 2);
-      }
-      else if (enc_prev_pos == 0x01) {
+      } else if (enc_prev_pos == 0x01) {
         enc_flags |= (1 << 3);
       }
 
@@ -175,8 +159,7 @@ void loop()
 
   if (enc_action > 0) {
       send_key(current_set.rotate_right);
-  }
-  else if (enc_action < 0) {
+  } else if (enc_action < 0) {
       send_key(current_set.rotate_left);
   }
 
