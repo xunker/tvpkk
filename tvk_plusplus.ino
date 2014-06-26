@@ -11,6 +11,10 @@ static uint8_t enc_prev_pos    = 0;
 static uint8_t enc_flags       = 0;
 static uint8_t sw_was_pressed  = 0;
 
+static unsigned long sw_press_began = 0;
+const unsigned long sw_short_press_threshold = 100; // millis
+const unsigned long sw_long_press_threshold = 1000; // millis
+
 #define MMKEY      0x00
 #define KEYCODE    0x01
 #define MOUSEWHEEL 0x02 // mouse scoll wheel
@@ -18,7 +22,7 @@ static uint8_t sw_was_pressed  = 0;
 // indexes for control_sets array;
 #define ROTATE_LEFT  1
 #define ROTATE_RIGHT 0
-#define BUTTON_PRESS 2
+#define BUTTON_PRESS 2  
 
 struct control_event{
   uint8_t event_type;
@@ -176,27 +180,22 @@ void loop()
       send_key(current_set.rotate_left);
   }
 
-  // remember that the switch is active-high
-  if (bit_is_set(TRINKET_PINx, PIN_ENCODER_SWITCH)) 
-  {
-    if (sw_was_pressed == 0) // only on initial press, so the keystroke is not repeated while the button is held down
-    {
-// XXX FIXME
-// eventually I want to have a long-press change the command set and leave the button press function as before.
-current_set_index = next_set_index(current_set_index, (sizeof(control_sets) / 6));
-change_command_set(current_set_index);
-     // send_key(current_set.button_press);
-
-      delay(5); // debounce delay
+  if (bit_is_set(TRINKET_PINx, PIN_ENCODER_SWITCH)) {
+    if (sw_press_began == 0) {
+      sw_press_began = millis();
     }
-    sw_was_pressed = 1;
-  }
-  else
-  {
-    if (sw_was_pressed != 0) {
-      delay(5); // debounce delay
+  } else {
+    if (sw_press_began > 0) {
+      // button WAS pressed, now is released
+      unsigned long sw_press_time = millis() - sw_press_began;
+      if (sw_press_time >= sw_long_press_threshold) {
+        current_set_index = next_set_index(current_set_index, (sizeof(control_sets) / 6));
+        change_command_set(current_set_index);
+      } else if (sw_press_time >= sw_short_press_threshold) {
+        send_key(current_set.button_press);
+      }
+      sw_press_began = 0;
     }
-    sw_was_pressed = 0;
   }
 
   TrinketHidCombo.poll(); // check if USB needs anything done
